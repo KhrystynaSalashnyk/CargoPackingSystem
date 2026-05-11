@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Cargo Packing System | Варіант 20</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --bg: #f8fafc;
+            --card: #ffffff;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #1e293b;
+        }
+
+        .container { width: 90%; max-width: 1200px; margin: 40px 0; }
+
+        header { margin-bottom: 30px; text-align: center; }
+        h1 { margin: 0; color: #0f172a; font-size: 2.2rem; }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--card);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            border: 1px solid #e2e8f0;
+        }
+
+        .alert-error {
+            background: #fef2f2;
+            border: 1px solid #fee2e2;
+            color: var(--danger);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.9rem; }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; margin-top: 10px; }
+        .btn-clear { background: #64748b; color: white; margin-top: 20px; }
+        button:hover { opacity: 0.9; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9rem; }
+        th { background: #f1f5f9; text-align: left; padding: 12px; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+
+        .canvas-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        #packingCanvas {
+            border: 2px solid #0f172a;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            background: #fdfdfd;
+        }
+
+        .stats { margin-top: 20px; font-size: 1.5rem; font-weight: 700; color: var(--success); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>📦 Система пакування вантажів</h1>
+        <p>Курсова робота • Варіант 20</p>
+    </header>
+
+    <div th:if="${error}" class="alert-error">
+        <strong>⚠️ Помилка:</strong> <span th:text="${error}"></span>
+    </div>
+
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="card">
+                <h3>Контейнер</h3>
+                <form th:action="@{/update-container}" method="post">
+                    <div class="form-group">
+                        <label>Ширина (W)</label>
+                        <input type="number" name="width" th:value="${containerW}" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Висота (H)</label>
+                        <input type="number" name="height" th:value="${containerH}" min="1" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Оновити площу</button>
+                </form>
+            </div>
+
+            <div class="card" style="margin-top: 20px;">
+                <h3>Додати вантаж</h3>
+                <form th:action="@{/add-cargo}" th:object="${newCargo}" method="post">
+                    <div class="form-group">
+                        <label>Ширина ящика</label>
+                        <input type="number" th:field="*{width}" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Висота ящика</label>
+                        <input type="number" th:field="*{height}" min="1" required>
+                    </div>
+                    <button type="submit" class="btn-success">➕ Додати в чергу</button>
+                </form>
+
+                <form th:action="@{/clear}" method="post">
+                    <button type="submit" class="btn-clear">🧹 Очистити все</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="card canvas-container">
+                <h3>Візуалізація розміщення</h3>
+                <canvas id="packingCanvas"
+                        th:data-container-w="${containerW}"
+                        th:data-container-h="${containerH}"></canvas>
+                <div class="stats">
+                    Ефективність: <span th:text="${fitness}">0.00%</span>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 24px;">
+                <h3>Список вантажів</h3>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Розмір</th>
+                        <th>Координати</th>
+                        <th>Дія</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="c : ${cargoList}">
+                        <td th:text="${c.id}"></td>
+                        <td th:text="${c.width} + ' x ' + ${c.height}"></td>
+                        <td th:text="'(' + ${c.x} + ', ' + ${c.y} + ')'"></td>
+                        <td>
+                            <form th:action="@{'/delete-cargo/' + ${c.id}}" method="post">
+                                <button type="submit" style="color: var(--danger); background: none; border: none; cursor: pointer; padding: 0;">Видалити</button>
+                            </form>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    function draw() {
+        const canvas = document.getElementById('packingCanvas');
+        const ctx = canvas.getContext('2d');
+        const cw = parseInt(canvas.getAttribute('data-container-w'));
+        const ch = parseInt(canvas.getAttribute('data-container-h'));
+        const cargoList = [[${cargoList}]];
+
+        // Адаптивний масштаб
+        const maxDisplayWidth = 700;
+        const maxDisplayHeight = 500;
+        const scale = Math.min(maxDisplayWidth / cw, maxDisplayHeight / ch);
+
+        canvas.width = cw * scale;
+        canvas.height = ch * scale;
+
+        // Фон контейнера
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Малюємо вантажі
+        cargoList.forEach((cargo, index) => {
+            const x = cargo.x * scale;
+            const y = cargo.y * scale;
+            const w = cargo.width * scale;
+            const h = cargo.height * scale;
+
+            // Колір ящика
+            ctx.fillStyle = `hsl(${(index * 137.5) % 360}, 65%, 65%)`;
+            ctx.fillRect(x, y, w, h);
+
+            // Контур
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, y, w, h);
+
+            // Текст всередині
+            if (w > 20 && h > 20) {
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 12px Inter';
+                ctx.fillText(`#${cargo.id}`, x + 5, y + 15);
+            }
+        });
+    }
+
+    // Запуск малювання після завантаження
+    window.onload = draw;
+</script>
+
+</body>
+</html>
