@@ -1,11 +1,10 @@
-# Використовуємо образ з Java 11
-FROM openjdk:11-jre-slim
+# Етап 1: Збірка (використовуємо Eclipse Temurin - це надійний дистрибутив Java)
+FROM maven:3.8-eclipse-temurin-11 AS build
+COPY . .
+RUN mvn clean package -DskipTests
 
-# Копіюємо згенерований jar-файл у контейнер
-COPY target/*.jar app.jar
-
-# Відкриваємо порт 8080
+# Етап 2: Запуск
+FROM eclipse-temurin:11-jre-focal
+COPY --from=build /target/*.jar app.jar
 EXPOSE 8080
-
-# Команда для запуску
 ENTRYPOINT ["java", "-jar", "/app.jar"]
